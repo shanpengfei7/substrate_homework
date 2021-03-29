@@ -27,6 +27,8 @@ fn handle_client(mut stream: TcpStream) {
                 let response = "Response: ".to_string() + &msg;
                 // 把客户端的消息再发回客户端
                 stream.write(response.as_bytes()).unwrap();
+                // 刷新流
+                stream.flush().unwrap();
             }
             // 当读取出错，打印错误信息
             Err(e) => println!("read err {}", e),

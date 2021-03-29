@@ -3,7 +3,19 @@
 version = 3
 
 [[package]]
+name = "genericity"
+version = "0.1.0"
+
+[[package]]
 name = "homework"
+version = "0.1.0"
+
+[[package]]
+name = "light"
+version = "0.1.0"
+
+[[package]]
+name = "match_option"
 version = "0.1.0"
 
 [[package]]
