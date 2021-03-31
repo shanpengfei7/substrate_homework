@@ -97,7 +97,7 @@ Substrate-based blockchain nodes expose a number of capabilities:
 
 There are several files in the `node` directory - take special note of the following:
 
--   [`chain_spec.rs`](./node/src/chain_spec.rs): A
+-   [`chain_spec.rs`](node/src/chain_spec.rs): A
     [chain specification](https://substrate.dev/docs/en/knowledgebase/integrate/chain-spec) is a
     source code file that defines a Substrate chain's initial (genesis) state. Chain specifications
     are useful for development and testing, and critical when architecting the launch of a
@@ -106,7 +106,7 @@ There are several files in the `node` directory - take special note of the follo
     functions identify some
     [well-known accounts](https://substrate.dev/docs/en/knowledgebase/integrate/subkey#well-known-keys)
     and use them to configure the blockchain's initial state.
--   [`service.rs`](./node/src/service.rs): This file defines the node implementation. Take note of
+-   [`service.rs`](node/src/service.rs): This file defines the node implementation. Take note of
     the libraries that this file imports and the names of the functions it invokes. In particular,
     there are references to consensus-related topics, such as the
     [longest chain rule](https://substrate.dev/docs/en/knowledgebase/advanced/consensus#longest-chain-rule),
@@ -136,7 +136,7 @@ called "pallets". At the heart of FRAME is a helpful
 create pallets and flexibly compose them to create blockchains that can address
 [a variety of needs](https://www.substrate.io/substrate-users/).
 
-Review the [FRAME runtime implementation](./runtime/src/lib.rs) included in this template and note
+Review the [FRAME runtime implementation](runtime/src/lib.rs) included in this template and note
 the following:
 
 -   This file configures several pallets to include in the runtime. Each pallet configuration is
@@ -151,7 +151,7 @@ the following:
 
 The runtime in this project is constructed using many FRAME pallets that ship with the
 [core Substrate repository](https://github.com/paritytech/substrate/tree/master/frame) and a
-template pallet that is [defined in the `pallets`](./pallets/template/src/lib.rs) directory.
+template pallet that is [defined in the `pallets`](pallets/template/src/lib.rs) directory.
 
 A FRAME pallet is compromised of a number of blockchain primitives:
 
