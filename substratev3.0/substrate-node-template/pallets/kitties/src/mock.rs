@@ -1,6 +1,5 @@
-use super::*;
 use crate as pallet_kitties;
-use frame_support::{parameter_types, traits::Randomness};
+use frame_support::{parameter_types};
 use frame_system as system;
 use sp_core::H256;
 use sp_runtime::{
@@ -21,6 +20,7 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         KittiesModule: pallet_kitties::{Pallet, Call, Storage, Event<T>},
         CollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage},
     }
@@ -29,6 +29,19 @@ frame_support::construct_runtime!(
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 42;
+    pub const ExistentialDeposit: u64 = 1;
+}
+
+impl pallet_balances::Config for Test {
+    type Balance = u64;
+    type DustRemoval = ();
+    type Event = Event;
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = System;
+    type WeightInfo = ();
+    type MaxLocks = ();
+    type MaxReserves = ();
+    type ReserveIdentifier = [u8; 8];
 }
 
 impl system::Config for Test {
@@ -49,7 +62,7 @@ impl system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = ();
+    type AccountData = pallet_balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -60,12 +73,13 @@ impl system::Config for Test {
 impl pallet_kitties::Config for Test {
     type Event = Event;
     type Randomness = CollectiveFlip;
+    type Currency= Balances;
 }
 
 // Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
-    system::GenesisConfig::default()
-        .build_storage::<Test>()
-        .unwrap()
-        .into()
-}
+// pub fn new_test_ext() -> sp_io::TestExternalities {
+//     system::GenesisConfig::default()
+//         .build_storage::<Test>()
+//         .unwrap()
+//         .into()
+// }

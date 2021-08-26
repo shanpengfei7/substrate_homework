@@ -11,7 +11,8 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
     use codec::{Decode, Encode};
-    use frame_support::{dispatch::DispatchResult, pallet_prelude::*, traits::Randomness};
+    use frame_support::{dispatch::DispatchResult, pallet_prelude::*,
+                        traits::{Randomness, Currency}};
     use frame_system::pallet_prelude::*;
     use sp_io::hashing::blake2_128;
 
@@ -20,10 +21,13 @@ pub mod pallet {
 
     type KittyIndex = u32;
 
+    pub type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
     #[pallet::config]
     pub trait Config: frame_system::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
+        type Currency: Currency<Self::AccountId>;
     }
 
     #[pallet::pallet]
@@ -42,6 +46,11 @@ pub mod pallet {
     #[pallet::getter(fn owner)]
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, KittyIndex, Option<T::AccountId>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn kitties_market)]
+    pub type KittiesMarket<T: Config> =
+        StorageMap<_, Blake2_128Concat, KittyIndex, Option<BalanceOf<T>>, ValueQuery>;
 
     #[pallet::event]
     #[pallet::metadata(T::AccountId = "AccountId")]
