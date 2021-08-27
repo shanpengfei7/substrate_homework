@@ -15,12 +15,10 @@ pub mod pallet {
                         traits::{Randomness, Currency}};
     use frame_system::pallet_prelude::*;
     use sp_io::hashing::blake2_128;
-    use sp_runtime::{traits::{AtLeast32Bit, Member}};
+    use sp_runtime::{traits::{AtLeast32BitUnsigned, Member, Bounded, One}};
 
     #[derive(Encode, Decode)]
     pub struct Kitty(pub [u8; 16]);
-
-    type KittyIndex = u32;
 
     pub type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
@@ -28,7 +26,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
-        type KittyIndex: Parameter + Member + AtLeast32Bit + Default + Copy;
+        type KittyIndex: Parameter + Member + AtLeast32BitUnsigned + Bounded + One + Default + Copy;
         type Currency: Currency<Self::AccountId>;
     }
 
@@ -38,29 +36,29 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn kitties_count)]
-    pub type KittiesCount<T> = StorageValue<_, u32>;
+    pub type KittiesCount<T: Config> = StorageValue<_, T::KittyIndex>;
 
     #[pallet::storage]
     #[pallet::getter(fn kitties)]
-    pub type Kitties<T> = StorageMap<_, Blake2_128Concat, KittyIndex, Option<Kitty>, ValueQuery>;
+    pub type Kitties<T: Config> = StorageMap<_, Blake2_128Concat, T::KittyIndex, Option<Kitty>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn owner)]
     pub type Owner<T: Config> =
-        StorageMap<_, Blake2_128Concat, KittyIndex, Option<T::AccountId>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, T::KittyIndex, Option<T::AccountId>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn kitties_market)]
     pub type KittiesMarket<T: Config> =
-        StorageMap<_, Blake2_128Concat, KittyIndex, Option<BalanceOf<T>>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, T::KittyIndex, Option<BalanceOf<T>>, ValueQuery>;
 
     #[pallet::event]
     #[pallet::metadata(T::AccountId = "AccountId")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        KittyCreate(T::AccountId, KittyIndex),
-        KittyTransfer(T::AccountId, T::AccountId, KittyIndex),
-        KittyBreed(T::AccountId, KittyIndex),
+        KittyCreate(T::AccountId, T::KittyIndex),
+        KittyTransfer(T::AccountId, T::AccountId, T::KittyIndex),
+        KittyBreed(T::AccountId, T::KittyIndex),
     }
 
     #[pallet::error]
@@ -77,23 +75,11 @@ pub mod pallet {
         pub fn create(origin: OriginFor<T>) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
-            let kitty_id = match Self::kitties_count() {
-                Some(id) => {
-                    ensure!(
-                        id != KittyIndex::max_value(),
-                        Error::<T>::KittiesCountOverflow
-                    );
-                    id
-                }
-                None => 1,
-            };
+            let kitty_id = Self::next_kitty_id()?;
 
             let dna = Self::random_value(&who);
 
-
-            Kitties::<T>::insert(kitty_id, Some(Kitty(dna)));
-            Owner::<T>::insert(kitty_id, Some(who.clone()));
-            KittiesCount::<T>::put(kitty_id + 1);
+            Self::add_one_kitty(who.clone(), kitty_id, dna);
 
             Self::deposit_event(Event::KittyCreate(who, kitty_id));
 
@@ -104,7 +90,7 @@ pub mod pallet {
         pub fn transfer(
             origin: OriginFor<T>,
             new_owner: T::AccountId,
-            kitty_id: KittyIndex,
+            kitty_id: T::KittyIndex,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
@@ -123,8 +109,8 @@ pub mod pallet {
         #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
         pub fn breed(
             origin: OriginFor<T>,
-            kitty_id_1: KittyIndex,
-            kitty_id_2: KittyIndex,
+            kitty_id_1: T::KittyIndex,
+            kitty_id_2: T::KittyIndex,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
@@ -133,16 +119,7 @@ pub mod pallet {
             let kitty1 = Self::kitties(kitty_id_1).ok_or(Error::<T>::InvalidKittyIndex)?;
             let kitty2 = Self::kitties(kitty_id_2).ok_or(Error::<T>::InvalidKittyIndex)?;
 
-            let kitty_id = match Self::kitties_count() {
-                Some(id) => {
-                    ensure!(
-                        id != KittyIndex::max_value(),
-                        Error::<T>::KittiesCountOverflow
-                    );
-                    id
-                }
-                None => 1,
-            };
+            let kitty_id = Self::next_kitty_id()?;
 
             let dna_1 = kitty1.0;
             let dna_2 = kitty2.0;
@@ -154,9 +131,7 @@ pub mod pallet {
                 new_dna[i] = (selector[i] & dna_1[i]) | (!selector[i] & dna_2[i]);
             }
 
-            Kitties::<T>::insert(kitty_id, Some(Kitty(new_dna)));
-            Owner::<T>::insert(kitty_id, Some(who.clone()));
-            KittiesCount::<T>::put(kitty_id + 1);
+            Self::add_one_kitty(who.clone(), kitty_id, new_dna);
 
             Self::deposit_event(Event::KittyBreed(who, kitty_id));
 
@@ -174,18 +149,24 @@ pub mod pallet {
             payload.using_encoded(blake2_128)
         }
 
-        // fn next_kitty_id() -> sp_std::result::Result<T::KittyIndex, DispatchError> {
-        //     let kitty_id = match Self::kitties_count() {
-        //         Some(id) => {
-        //             ensure!(
-        //                 id != KittyIndex::max_value(),
-        //                 Error::<T>::KittiesCountOverflow
-        //             );
-        //             id
-        //         }
-        //         None => 1,
-        //     };
-        //     Ok(kitty_id)
-        // }
+        fn next_kitty_id() -> sp_std::result::Result<T::KittyIndex, DispatchError> {
+            let kitty_id = match Self::kitties_count() {
+                Some(id) => {
+                    ensure!(
+                        id != T::KittyIndex::max_value(),
+                        Error::<T>::KittiesCountOverflow
+                    );
+                    id
+                }
+                None => T::KittyIndex::one(),
+            };
+            Ok(kitty_id)
+        }
+
+        fn add_one_kitty(owner: T::AccountId, kitty_id: T::KittyIndex, dna: [u8; 16]) {
+            Kitties::<T>::insert(kitty_id, Some(Kitty(dna)));
+            Owner::<T>::insert(kitty_id, Some(owner.clone()));
+            KittiesCount::<T>::put(kitty_id + T::KittyIndex::one());
+        }
     }
 }
