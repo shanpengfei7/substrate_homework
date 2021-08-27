@@ -287,6 +287,8 @@ impl pallet_poe_spf::Config for Runtime {
 impl pallet_kitties::Config for Runtime {
     type Event = Event;
     type Randomness = RandomnessCollectiveFlip;
+    type Currency= Balances;
+    type KittyIndex= u32;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
