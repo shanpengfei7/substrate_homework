@@ -15,6 +15,7 @@ pub mod pallet {
                         traits::{Randomness, Currency}};
     use frame_system::pallet_prelude::*;
     use sp_io::hashing::blake2_128;
+    use sp_runtime::{traits::{AtLeast32Bit, Member}};
 
     #[derive(Encode, Decode)]
     pub struct Kitty(pub [u8; 16]);
@@ -27,6 +28,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
+        type KittyIndex: Parameter + Member + AtLeast32Bit + Default + Copy;
         type Currency: Currency<Self::AccountId>;
     }
 
@@ -87,6 +89,7 @@ pub mod pallet {
             };
 
             let dna = Self::random_value(&who);
+
 
             Kitties::<T>::insert(kitty_id, Some(Kitty(dna)));
             Owner::<T>::insert(kitty_id, Some(who.clone()));
@@ -170,5 +173,19 @@ pub mod pallet {
             );
             payload.using_encoded(blake2_128)
         }
+
+        // fn next_kitty_id() -> sp_std::result::Result<T::KittyIndex, DispatchError> {
+        //     let kitty_id = match Self::kitties_count() {
+        //         Some(id) => {
+        //             ensure!(
+        //                 id != KittyIndex::max_value(),
+        //                 Error::<T>::KittiesCountOverflow
+        //             );
+        //             id
+        //         }
+        //         None => 1,
+        //     };
+        //     Ok(kitty_id)
+        // }
     }
 }
