@@ -75,6 +75,7 @@ impl pallet_kitties::Config for Test {
     type Event = Event;
     type Randomness = RandomnessCollectiveFlip;
     type Currency= BalancesModule;
+    type LockableCurrency= BalancesModule;
     type KittyIndex= u32;
 }
 

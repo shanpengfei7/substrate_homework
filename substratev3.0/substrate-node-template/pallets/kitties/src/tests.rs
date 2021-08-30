@@ -1,10 +1,9 @@
-// use super::*;
-use super::{Kitties, Owner, KittiesCount, Kitty, KittiesMarket};
-// use crate::{mock::*, Error};
-use crate::{mock::{new_test_ext, Test, KittiesModule, BalancesModule, Origin, System}, Error};
+use super::*;
+use crate::{mock::*, Error};
 use frame_support::{assert_noop, assert_ok};
 use pallet_balances::Error as BalancesError;
 
+// 创建新的kitty
 #[test]
 fn create_works() {
     new_test_ext().execute_with(|| {
@@ -20,15 +19,19 @@ fn create_works() {
     })
 }
 
+// 创建新的kitty时，id溢出
 #[test]
 fn create_failed_when_kitty_index_limit_over() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 设为最大
         KittiesCount::<Test>::put(u32::MAX);
+        // 再创建一个新的kitty
         assert_noop!(KittiesModule::create(Origin::signed(1)), Error::<Test>::KittiesCountOverflow);
     })
 }
 
+// 转移kitty所属关系
 #[test]
 fn transfer_works() {
     new_test_ext().execute_with(|| {
@@ -46,6 +49,7 @@ fn transfer_works() {
     })
 }
 
+// 转移kitty所属关系时，转移了其它人的kitty
 #[test]
 fn transfer_failed_when_kitty_not_self() {
     new_test_ext().execute_with(|| {
@@ -57,7 +61,7 @@ fn transfer_failed_when_kitty_not_self() {
     })
 }
 
-
+// 通过父母生成新的kitty
 #[test]
 fn breed_works() {
     new_test_ext().execute_with(|| {
@@ -77,6 +81,7 @@ fn breed_works() {
     })
 }
 
+//通过父母生成新的kitty时，父母使用了同一个
 #[test]
 fn breed_failed_when_kitty1_equal_kitty2() {
     new_test_ext().execute_with(|| {
@@ -88,8 +93,9 @@ fn breed_failed_when_kitty1_equal_kitty2() {
     })
 }
 
+//通过父母生成新的kitty时，（第一个是父，第二个是母），父不存在
 #[test]
-fn breed_failed_when_kitty1_inalid() {
+fn breed_failed_when_kitty1_invalid() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
         // 用户1创建一个kitty1
@@ -99,8 +105,9 @@ fn breed_failed_when_kitty1_inalid() {
     })
 }
 
+//通过父母生成新的kitty时，（第一个是父，第二个是母），母不存在
 #[test]
-fn breed_failed_when_kitty2_inalid() {
+fn breed_failed_when_kitty2_invalid() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
         // 用户1创建一个kitty1
@@ -110,7 +117,7 @@ fn breed_failed_when_kitty2_inalid() {
     })
 }
 
-
+//通过父母生成新的kitty时，id溢出
 #[test]
 fn breed_failed_when_kitty_index_limit_over() {
     new_test_ext().execute_with(|| {
@@ -119,12 +126,14 @@ fn breed_failed_when_kitty_index_limit_over() {
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 用户2创建一个kitty2
         assert_ok!(KittiesModule::create(Origin::signed(2)));
-
+        // id设为最大
         KittiesCount::<Test>::put(u32::MAX);
+        // 再生成一个kitty
         assert_noop!(KittiesModule::breed(Origin::signed(3), 1, 2), Error::<Test>::KittiesCountOverflow);
     })
 }
 
+// 把kitty挂在市场上卖
 #[test]
 fn market_works() {
     new_test_ext().execute_with(|| {
@@ -132,13 +141,13 @@ fn market_works() {
         // 创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 以10的价钱放在市场上卖
-        assert_ok!(KittiesModule::market(Origin::signed(1), 1, Some(10)));
+        assert_ok!(KittiesModule::market(Origin::signed(1), 1, 10));
         // kitty在市场上的价钱
         assert_eq!(KittiesMarket::<Test>::get(1), Some(10));
     })
 }
 
-
+// 把kitty挂在市场上卖时，其它人挂的
 #[test]
 fn market_failed_when_kitty_not_self() {
     new_test_ext().execute_with(|| {
@@ -146,11 +155,11 @@ fn market_failed_when_kitty_not_self() {
         // 先创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 用户2把用户1的kitty以10的价钱放在市场上卖
-        assert_noop!(KittiesModule::market(Origin::signed(2), 1, Some(10)), Error::<Test>::NotOwner);
+        assert_noop!(KittiesModule::market(Origin::signed(2), 1, 10), Error::<Test>::NotOwner);
     })
 }
 
-
+// 从市场上买一个kitty
 #[test]
 fn buy_works() {
     new_test_ext().execute_with(|| {
@@ -158,7 +167,7 @@ fn buy_works() {
         // 创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 以10的价钱放在市场上卖
-        assert_ok!(KittiesModule::market(Origin::signed(1), 1, Some(10)));
+        assert_ok!(KittiesModule::market(Origin::signed(1), 1, 10));
         // 给用户2钱包放点钱
         assert_ok!(BalancesModule::set_balance(Origin::root(), 2, 1_000, 0));
         // 用户2买
@@ -168,7 +177,7 @@ fn buy_works() {
     })
 }
 
-
+// 从市场上买一个kitty时，钱不够
 #[test]
 fn buy_failed_when_have_no_money() {
     new_test_ext().execute_with(|| {
@@ -176,13 +185,13 @@ fn buy_failed_when_have_no_money() {
         // 创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 以10的价钱放在市场上卖
-        assert_ok!(KittiesModule::market(Origin::signed(1), 1, Some(10)));
+        assert_ok!(KittiesModule::market(Origin::signed(1), 1, 10));
         // 用户2买，钱不够
         assert_noop!(KittiesModule::buy(Origin::signed(2), 1, 10), BalancesError::<Test>::InsufficientBalance);
     })
 }
 
-
+// 从市场上买一个kitty时，买一个不存在的kitty
 #[test]
 fn buy_failed_when_invalid_account_id() {
     new_test_ext().execute_with(|| {
@@ -190,14 +199,15 @@ fn buy_failed_when_invalid_account_id() {
         // 创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 以10的价钱放在市场上卖
-        assert_ok!(KittiesModule::market(Origin::signed(1), 1, Some(10)));
+        assert_ok!(KittiesModule::market(Origin::signed(1), 1, 10));
         // 给用户2钱包放点钱
         assert_ok!(BalancesModule::set_balance(Origin::root(), 2, 1_000, 0));
         // 用户2买
-        assert_noop!(KittiesModule::buy(Origin::signed(2), 2, 10), Error::<Test>::InvalidAccountId);
+        assert_noop!(KittiesModule::buy(Origin::signed(2), 2, 10), Error::<Test>::InvalidKittyIndex);
     })
 }
 
+// 从市场上买一个kitty时，买一个没放到市场上的kitty
 #[test]
 fn buy_failed_when_invalid_market_price() {
     new_test_ext().execute_with(|| {
@@ -211,6 +221,7 @@ fn buy_failed_when_invalid_market_price() {
     })
 }
 
+// 从市场上买一个kitty时，买价比市场上的挂单价低
 #[test]
 fn buy_failed_when_price_too_low() {
     new_test_ext().execute_with(|| {
@@ -218,7 +229,7 @@ fn buy_failed_when_price_too_low() {
         // 创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 以10的价钱放在市场上卖
-        assert_ok!(KittiesModule::market(Origin::signed(1), 1, Some(10)));
+        assert_ok!(KittiesModule::market(Origin::signed(1), 1, 10));
         // 给用户2钱包放点钱
         assert_ok!(BalancesModule::set_balance(Origin::root(), 2, 1_000, 0));
         // 用户2买

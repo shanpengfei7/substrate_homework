@@ -12,7 +12,7 @@ mod tests;
 pub mod pallet {
     use codec::{Decode, Encode};
     use frame_support::{dispatch::DispatchResult, pallet_prelude::*,
-                        traits::{Randomness, Currency, ExistenceRequirement}};
+                        traits::{Randomness, Currency, LockableCurrency, ExistenceRequirement, WithdrawReasons, LockIdentifier}};
     use frame_system::pallet_prelude::*;
     use sp_io::hashing::blake2_128;
     use sp_runtime::{traits::{AtLeast32BitUnsigned, Member, Bounded, One}};
@@ -28,6 +28,7 @@ pub mod pallet {
         type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
         type KittyIndex: Parameter + Member + AtLeast32BitUnsigned + Bounded + One + Default + Copy;
         type Currency: Currency<Self::AccountId>;
+        type LockableCurrency: LockableCurrency<Self::AccountId>;
     }
 
     #[pallet::pallet]
@@ -59,7 +60,7 @@ pub mod pallet {
         KittyCreate(T::AccountId, T::KittyIndex),
         KittyTransfer(T::AccountId, T::AccountId, T::KittyIndex),
         KittyBreed(T::AccountId, T::KittyIndex),
-        KittyMarket(T::AccountId, T::KittyIndex, Option<BalanceOf<T>>),
+        KittyMarket(T::AccountId, T::KittyIndex, BalanceOf<T>),
         KittyBuy(T::AccountId, T::KittyIndex, BalanceOf<T>),
     }
 
@@ -69,7 +70,6 @@ pub mod pallet {
         NotOwner,
         SameParentIndex,
         InvalidKittyIndex,
-        InvalidAccountId,
         InvalidMarketPrice,
         PriceTooLow,
     }
@@ -78,118 +78,98 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
         pub fn create(origin: OriginFor<T>) -> DispatchResult {
-            let who = ensure_signed(origin)?;
+            // 方法调用者
+            let sender = ensure_signed(origin)?;
 
+            // 下一个id
             let kitty_id = Self::next_kitty_id()?;
 
-            let dna = Self::random_value(&who);
+            // 创建dna
+            let dna = Self::random_value(&sender);
 
-            Self::add_one_kitty(who.clone(), kitty_id, dna);
+            // 锁定一定的钱
+            T::LockableCurrency::set_lock( *b"1       ", &sender,  *b"1       ", WithdrawReasons::all());
 
-            Self::deposit_event(Event::KittyCreate(who, kitty_id));
+            // 保存新的kitty
+            Self::add_one_kitty(sender.clone(), kitty_id, dna);
+
+            // 事件
+            Self::deposit_event(Event::KittyCreate(sender, kitty_id));
 
             Ok(())
         }
 
         #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-        pub fn transfer(
-            origin: OriginFor<T>,
-            new_owner: T::AccountId,
-            kitty_id: T::KittyIndex,
-        ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
+        pub fn transfer(origin: OriginFor<T>, new_owner: T::AccountId, kitty_id: T::KittyIndex) -> DispatchResult {
+            // 方法调用者
+            let sender = ensure_signed(origin)?;
 
-            ensure!(
-                Some(who.clone()) == Owner::<T>::get(kitty_id),
-                Error::<T>::NotOwner
-            );
+            // kitty是调用者的
+            ensure!(Some(sender.clone()) == Owner::<T>::get(kitty_id),Error::<T>::NotOwner);
 
+            // 变一下kitty所属关系
             Owner::<T>::insert(kitty_id, Some(new_owner.clone()));
 
-            Self::deposit_event(Event::KittyTransfer(who, new_owner, kitty_id));
+            // 事件
+            Self::deposit_event(Event::KittyTransfer(sender, new_owner, kitty_id));
 
             Ok(())
         }
 
         #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-        pub fn breed(
-            origin: OriginFor<T>,
-            kitty_id_1: T::KittyIndex,
-            kitty_id_2: T::KittyIndex,
-        ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
+        pub fn breed(origin: OriginFor<T>, kitty_id_1: T::KittyIndex, kitty_id_2: T::KittyIndex) -> DispatchResult {
+            // 方法调用者
+            let sender = ensure_signed(origin)?;
 
-            ensure!(kitty_id_1 != kitty_id_2, Error::<T>::SameParentIndex);
-
-            let kitty1 = Self::kitties(kitty_id_1).ok_or(Error::<T>::InvalidKittyIndex)?;
-            let kitty2 = Self::kitties(kitty_id_2).ok_or(Error::<T>::InvalidKittyIndex)?;
-
+            // 获取孩子的id
             let kitty_id = Self::next_kitty_id()?;
 
-            let dna_1 = kitty1.0;
-            let dna_2 = kitty2.0;
+            // 生成孩子的dna
+            let dna = Self::breed_dna(&sender, kitty_id_1, kitty_id_2)?;
 
-            let selector = Self::random_value(&who);
-            let mut new_dna = [0u8; 16];
+            // 保存孩子kitty
+            Self::add_one_kitty(sender.clone(), kitty_id, dna);
 
-            for i in 0..dna_1.len() {
-                new_dna[i] = (selector[i] & dna_1[i]) | (!selector[i] & dna_2[i]);
-            }
-
-            Self::add_one_kitty(who.clone(), kitty_id, new_dna);
-
-            Self::deposit_event(Event::KittyBreed(who, kitty_id));
+            // 事件
+            Self::deposit_event(Event::KittyBreed(sender, kitty_id));
 
             Ok(())
         }
 
         #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-        pub fn market(
-            origin: OriginFor<T>,
-            kitty_id: T::KittyIndex,
-            price: Option<BalanceOf<T>>
-        ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
+        pub fn market(origin: OriginFor<T>, kitty_id: T::KittyIndex, price: BalanceOf<T>) -> DispatchResult {
+            // 方法调用者
+            let sender = ensure_signed(origin)?;
 
-            ensure!(
-                Some(who.clone()) == Owner::<T>::get(kitty_id),
-                Error::<T>::NotOwner
-            );
+            // kitty是调用者的
+            ensure!(Some(sender.clone()) == Owner::<T>::get(kitty_id),Error::<T>::NotOwner);
 
-            KittiesMarket::<T>::insert(kitty_id, price.clone());
+            // 把kitty放到市场上
+            KittiesMarket::<T>::insert(kitty_id, Some(price));
 
-            Self::deposit_event(Event::KittyMarket(who, kitty_id, price));
+            // 事件
+            Self::deposit_event(Event::KittyMarket(sender, kitty_id, price));
 
             Ok(())
         }
 
         #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-        pub fn buy(
-            origin: OriginFor<T>,
-            kitty_id: T::KittyIndex,
-            price: BalanceOf<T>
-        ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
+        pub fn buy(origin: OriginFor<T>, kitty_id: T::KittyIndex, price: BalanceOf<T>) -> DispatchResult {
+            // 方法调用者
+            let sender = ensure_signed(origin)?;
 
-            let owner = Self::owner(kitty_id).ok_or(Error::<T>::InvalidAccountId)?;
+            // 从市场购买kitty
+            let kitty_price  = Self::buy_kitty(&sender, kitty_id, price)?;
 
-            let kitty_price = Self::kitties_market(kitty_id).ok_or(Error::<T>::InvalidMarketPrice)?;
-
-            ensure!(price >= kitty_price, Error::<T>::PriceTooLow);
-
-            T::Currency::transfer(&who, &owner, kitty_price, ExistenceRequirement::KeepAlive)?;
-
-            KittiesMarket::<T>::remove(kitty_id);
-
-            Owner::<T>::insert(kitty_id, Some(who.clone()));
-
-            Self::deposit_event(Event::KittyBuy(who, kitty_id, kitty_price));
+            // 事件
+            Self::deposit_event(Event::KittyBuy(sender, kitty_id, kitty_price));
 
             Ok(())
         }
     }
 
     impl<T: Config> Pallet<T> {
+        // 使用随机数创建一个dna
         fn random_value(sender: &T::AccountId) -> [u8; 16] {
             let payload = (
                 T::Randomness::random_seed(),
@@ -199,24 +179,76 @@ pub mod pallet {
             payload.using_encoded(blake2_128)
         }
 
+        // 获取下一个id
         fn next_kitty_id() -> sp_std::result::Result<T::KittyIndex, DispatchError> {
             let kitty_id = match Self::kitties_count() {
                 Some(id) => {
-                    ensure!(
-                        id != T::KittyIndex::max_value(),
-                        Error::<T>::KittiesCountOverflow
-                    );
+                    // 溢出报错
+                    ensure!(id != T::KittyIndex::max_value(), Error::<T>::KittiesCountOverflow);
+                    // 获取下一个id的时候加1，存的时候就不加了
                     id + T::KittyIndex::one()
                 }
+                // 第一次获取的时候直接用1
                 None => T::KittyIndex::one(),
             };
             Ok(kitty_id)
         }
 
+        // 增加一个kitty
         fn add_one_kitty(owner: T::AccountId, kitty_id: T::KittyIndex, dna: [u8; 16]) {
+            // 保存kitty
             Kitties::<T>::insert(kitty_id, Some(Kitty(dna)));
+            // 保存kitty属于谁
             Owner::<T>::insert(kitty_id, Some(owner.clone()));
+            // 创建了多少个kitty了
             KittiesCount::<T>::put(kitty_id);
+        }
+
+        // 生成孩子的dna
+        fn breed_dna(sender: &T::AccountId, kitty_id_1: T::KittyIndex, kitty_id_2: T::KittyIndex) -> sp_std::result::Result<[u8; 16], DispatchError> {
+            // 父母不能一致
+            ensure!(kitty_id_1 != kitty_id_2, Error::<T>::SameParentIndex);
+
+            // 通过id获取父母
+            let kitty1 = Self::kitties(kitty_id_1).ok_or(Error::<T>::InvalidKittyIndex)?;
+            let kitty2 = Self::kitties(kitty_id_2).ok_or(Error::<T>::InvalidKittyIndex)?;
+
+            // 父母的dna
+            let dna_1 = kitty1.0;
+            let dna_2 = kitty2.0;
+
+            // 通过父母的dna生成孩子的dna
+            let selector = Self::random_value(sender);
+            let mut new_dna = [0u8; 16];
+            for i in 0..dna_1.len() {
+                new_dna[i] = (selector[i] & dna_1[i]) | (!selector[i] & dna_2[i]);
+            }
+
+            // 返回新的dna
+            Ok(new_dna)
+        }
+
+        // 从市场购买kitty
+        fn buy_kitty(sender: &T::AccountId, kitty_id: T::KittyIndex, price: BalanceOf<T>) -> sp_std::result::Result<BalanceOf<T>, DispatchError> {
+            // 获取kitty所属用户，判断kitty是否存在
+            let owner = Self::owner(kitty_id).ok_or(Error::<T>::InvalidKittyIndex)?;
+
+            // 市场上kitty挂的价钱，判断kitty是否在市场上挂单
+            let kitty_price = Self::kitties_market(kitty_id).ok_or(Error::<T>::InvalidMarketPrice)?;
+
+            // 出的钱要比市场上的价钱高
+            ensure!(price >= kitty_price, Error::<T>::PriceTooLow);
+
+            // 转钱，把钱直接转给在市场上挂单卖的人
+            T::Currency::transfer(sender, &owner, kitty_price, ExistenceRequirement::KeepAlive)?;
+
+            // 从市场上撤下来
+            KittiesMarket::<T>::remove(kitty_id);
+
+            // 变一下kitty所属关系
+            Owner::<T>::insert(kitty_id, Some(sender.clone()));
+
+            Ok(kitty_price)
         }
     }
 }

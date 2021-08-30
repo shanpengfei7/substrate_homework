@@ -288,6 +288,7 @@ impl pallet_kitties::Config for Runtime {
     type Event = Event;
     type Randomness = RandomnessCollectiveFlip;
     type Currency= Balances;
+    type LockableCurrency= Balances;
     type KittyIndex= u32;
 }
 
