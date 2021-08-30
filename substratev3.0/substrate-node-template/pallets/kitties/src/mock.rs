@@ -20,7 +20,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage},
-        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+        BalancesModule: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         KittiesModule: pallet_kitties::{Pallet, Call, Storage, Event<T>},
     }
 );
@@ -30,6 +30,7 @@ parameter_types! {
     pub const SS58Prefix: u8 = 42;
     pub const ExistentialDeposit: u64 = 1;
 }
+
 
 impl pallet_balances::Config for Test {
     type Balance = u64;
@@ -73,7 +74,7 @@ impl system::Config for Test {
 impl pallet_kitties::Config for Test {
     type Event = Event;
     type Randomness = RandomnessCollectiveFlip;
-    type Currency= Balances;
+    type Currency= BalancesModule;
     type KittyIndex= u32;
 }
 

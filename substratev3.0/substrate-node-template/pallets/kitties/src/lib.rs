@@ -12,7 +12,7 @@ mod tests;
 pub mod pallet {
     use codec::{Decode, Encode};
     use frame_support::{dispatch::DispatchResult, pallet_prelude::*,
-                        traits::{Randomness, Currency}};
+                        traits::{Randomness, Currency, ExistenceRequirement}};
     use frame_system::pallet_prelude::*;
     use sp_io::hashing::blake2_128;
     use sp_runtime::{traits::{AtLeast32BitUnsigned, Member, Bounded, One}};
@@ -59,6 +59,8 @@ pub mod pallet {
         KittyCreate(T::AccountId, T::KittyIndex),
         KittyTransfer(T::AccountId, T::AccountId, T::KittyIndex),
         KittyBreed(T::AccountId, T::KittyIndex),
+        KittyMarket(T::AccountId, T::KittyIndex, Option<BalanceOf<T>>),
+        KittyBuy(T::AccountId, T::KittyIndex, BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -67,6 +69,9 @@ pub mod pallet {
         NotOwner,
         SameParentIndex,
         InvalidKittyIndex,
+        InvalidAccountId,
+        InvalidMarketPrice,
+        PriceTooLow,
     }
 
     #[pallet::call]
@@ -134,6 +139,51 @@ pub mod pallet {
             Self::add_one_kitty(who.clone(), kitty_id, new_dna);
 
             Self::deposit_event(Event::KittyBreed(who, kitty_id));
+
+            Ok(())
+        }
+
+        #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+        pub fn market(
+            origin: OriginFor<T>,
+            kitty_id: T::KittyIndex,
+            price: Option<BalanceOf<T>>
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+
+            ensure!(
+                Some(who.clone()) == Owner::<T>::get(kitty_id),
+                Error::<T>::NotOwner
+            );
+
+            KittiesMarket::<T>::insert(kitty_id, price.clone());
+
+            Self::deposit_event(Event::KittyMarket(who, kitty_id, price));
+
+            Ok(())
+        }
+
+        #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+        pub fn buy(
+            origin: OriginFor<T>,
+            kitty_id: T::KittyIndex,
+            price: BalanceOf<T>
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+
+            let owner = Self::owner(kitty_id).ok_or(Error::<T>::InvalidAccountId)?;
+
+            let kitty_price = Self::kitties_market(kitty_id).ok_or(Error::<T>::InvalidMarketPrice)?;
+
+            ensure!(price >= kitty_price, Error::<T>::PriceTooLow);
+
+            T::Currency::transfer(&who, &owner, kitty_price, ExistenceRequirement::KeepAlive)?;
+
+            KittiesMarket::<T>::remove(kitty_id);
+
+            Owner::<T>::insert(kitty_id, Some(who.clone()));
+
+            Self::deposit_event(Event::KittyBuy(who, kitty_id, kitty_price));
 
             Ok(())
         }
