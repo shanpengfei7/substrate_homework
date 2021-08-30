@@ -1,5 +1,5 @@
 use crate as pallet_kitties;
-use frame_support::{parameter_types};
+use frame_support::parameter_types;
 use frame_system as system;
 use sp_core::H256;
 use sp_runtime::{
@@ -7,10 +7,9 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 
-impl pallet_randomness_collective_flip::Config for Test {}
-
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
+impl pallet_randomness_collective_flip::Config for Test {}
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -20,9 +19,9 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         KittiesModule: pallet_kitties::{Pallet, Call, Storage, Event<T>},
-        CollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage},
     }
 );
 
@@ -70,9 +69,10 @@ impl system::Config for Test {
     type OnSetCode = ();
 }
 
+
 impl pallet_kitties::Config for Test {
     type Event = Event;
-    type Randomness = CollectiveFlip;
+    type Randomness = RandomnessCollectiveFlip;
     type Currency= Balances;
     type KittyIndex= u32;
 }

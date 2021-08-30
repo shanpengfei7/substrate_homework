@@ -17,7 +17,7 @@ pub mod pallet {
     use sp_io::hashing::blake2_128;
     use sp_runtime::{traits::{AtLeast32BitUnsigned, Member, Bounded, One}};
 
-    #[derive(Encode, Decode)]
+    #[derive(Encode, Decode, Debug, PartialEq)]
     pub struct Kitty(pub [u8; 16]);
 
     pub type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -156,7 +156,7 @@ pub mod pallet {
                         id != T::KittyIndex::max_value(),
                         Error::<T>::KittiesCountOverflow
                     );
-                    id
+                    id + T::KittyIndex::one()
                 }
                 None => T::KittyIndex::one(),
             };
@@ -166,7 +166,7 @@ pub mod pallet {
         fn add_one_kitty(owner: T::AccountId, kitty_id: T::KittyIndex, dna: [u8; 16]) {
             Kitties::<T>::insert(kitty_id, Some(Kitty(dna)));
             Owner::<T>::insert(kitty_id, Some(owner.clone()));
-            KittiesCount::<T>::put(kitty_id + T::KittyIndex::one());
+            KittiesCount::<T>::put(kitty_id);
         }
     }
 }
