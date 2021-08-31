@@ -27,10 +27,8 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
         type KittyIndex: Parameter + Member + AtLeast32BitUnsigned + Bounded + One + Default + Copy;
-        // type Currency: Currency<Self::AccountId>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>
         + ReservableCurrency<Self::AccountId>;
-
         #[pallet::constant]
         type MinimumVotingLock: Get<BalanceOf<Self>>;
     }

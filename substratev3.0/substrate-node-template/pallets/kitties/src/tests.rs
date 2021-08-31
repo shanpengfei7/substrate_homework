@@ -1,4 +1,5 @@
 use super::*;
+use super::{Event as KittyEvent};
 use crate::{mock::*, Error};
 use frame_support::{assert_noop, assert_ok};
 use pallet_balances::Error as BalancesError;
@@ -18,6 +19,12 @@ fn create_works() {
         assert_eq!(Owner::<Test>::get(1), Some(1));
         // kitty数量是1
         assert_eq!(KittiesCount::<Test>::get(), Some(1));
+
+        // 判断事件
+        assert!(!System::events().is_empty());
+        assert_eq!(System::events().last().expect("events expected").event,
+           KittyEvent::KittyCreate(1, 1).into()
+        );
     })
 }
 
@@ -62,6 +69,12 @@ fn transfer_works() {
         assert_eq!(Kitties::<Test>::get(1), Some(Kitty([215, 75, 66, 60, 234, 156, 146, 62, 247, 65, 230, 205, 192, 2, 31, 70])));
         // 总数量还是1个
         assert_eq!(KittiesCount::<Test>::get(), Some(1));
+
+        // 判断事件
+        assert!(!System::events().is_empty());
+        assert_eq!(System::events().last().expect("events expected").event,
+                   KittyEvent::KittyTransfer(1, 2, 1).into()
+        );
     })
 }
 
@@ -100,6 +113,12 @@ fn breed_works() {
         assert_eq!(Kitties::<Test>::get(3), Some(Kitty([221, 159, 35, 52, 178, 136, 42, 59, 222, 76, 238, 149, 192, 19, 55, 82])));
         // 总数量还是3个
         assert_eq!(KittiesCount::<Test>::get(), Some(3));
+
+        // 判断事件
+        assert!(!System::events().is_empty());
+        assert_eq!(System::events().last().expect("events expected").event,
+                   KittyEvent::KittyBreed(3, 3).into()
+        );
     })
 }
 
@@ -178,6 +197,12 @@ fn market_works() {
         assert_ok!(KittiesModule::market(Origin::signed(1), 1, 10));
         // kitty在市场上的价钱
         assert_eq!(KittiesMarket::<Test>::get(1), Some(10));
+
+        // 判断事件
+        assert!(!System::events().is_empty());
+        assert_eq!(System::events().last().expect("events expected").event,
+                   KittyEvent::KittyMarket(1, 1, 10).into()
+        );
     })
 }
 
@@ -212,6 +237,12 @@ fn buy_works() {
         assert_ok!(KittiesModule::buy(Origin::signed(2), 1, 10));
         // kitty属于用于2
         assert_eq!(Owner::<Test>::get(1), Some(2));
+
+        // 判断事件
+        assert!(!System::events().is_empty());
+        assert_eq!(System::events().last().expect("events expected").event,
+                   KittyEvent::KittyBuy(2, 1, 10).into()
+        );
     })
 }
 
