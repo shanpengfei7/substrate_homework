@@ -29,6 +29,7 @@ parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 42;
     pub const ExistentialDeposit: u64 = 1;
+    pub const MinimumVotingLock: u64 = 100;
 }
 
 
@@ -75,8 +76,8 @@ impl pallet_kitties::Config for Test {
     type Event = Event;
     type Randomness = RandomnessCollectiveFlip;
     type Currency= BalancesModule;
-    type LockableCurrency= BalancesModule;
     type KittyIndex= u32;
+    type MinimumVotingLock = MinimumVotingLock;
 }
 
 // Build genesis storage according to the mock runtime.

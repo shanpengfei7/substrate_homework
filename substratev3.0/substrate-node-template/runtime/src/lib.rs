@@ -277,6 +277,7 @@ impl pallet_template::Config for Runtime {
 
 parameter_types! {
     pub const ClaimLimit: usize = 4;
+    pub const MinimumVotingLock: u64 = 100;
 }
 
 impl pallet_poe_spf::Config for Runtime {
@@ -288,8 +289,8 @@ impl pallet_kitties::Config for Runtime {
     type Event = Event;
     type Randomness = RandomnessCollectiveFlip;
     type Currency= Balances;
-    type LockableCurrency= Balances;
     type KittyIndex= u32;
+    type MinimumVotingLock = MinimumVotingLock;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

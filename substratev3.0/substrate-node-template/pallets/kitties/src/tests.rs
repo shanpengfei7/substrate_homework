@@ -8,6 +8,8 @@ use pallet_balances::Error as BalancesError;
 fn create_works() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
         // 创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // kitty的dna测试
@@ -19,6 +21,16 @@ fn create_works() {
     })
 }
 
+// 创建新的kitty时，钱不够
+#[test]
+fn create_failed_when_have_no_money() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(10);
+        // 用户1创建，钱不够
+        assert_noop!(KittiesModule::create(Origin::signed(1)), BalancesError::<Test>::InsufficientBalance);
+    })
+}
+
 // 创建新的kitty时，id溢出
 #[test]
 fn create_failed_when_kitty_index_limit_over() {
@@ -26,6 +38,8 @@ fn create_failed_when_kitty_index_limit_over() {
         System::set_block_number(10);
         // 设为最大
         KittiesCount::<Test>::put(u32::MAX);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
         // 再创建一个新的kitty
         assert_noop!(KittiesModule::create(Origin::signed(1)), Error::<Test>::KittiesCountOverflow);
     })
@@ -36,6 +50,8 @@ fn create_failed_when_kitty_index_limit_over() {
 fn transfer_works() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
         // 先创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 转移
@@ -54,6 +70,8 @@ fn transfer_works() {
 fn transfer_failed_when_kitty_not_self() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
         // 先创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 用户2把用户1的kitty转给用户3时，NotOwner
@@ -66,6 +84,10 @@ fn transfer_failed_when_kitty_not_self() {
 fn breed_works() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
+        // 给用户2钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 2, 1_000, 0));
         // 用户1创建一个kitty1
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 用户2创建一个kitty2
@@ -86,6 +108,8 @@ fn breed_works() {
 fn breed_failed_when_kitty1_equal_kitty2() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
         // 用户1创建一个kitty1
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 用户3用kitty1和kitty1生成kitty3，SameParentIndex
@@ -98,6 +122,8 @@ fn breed_failed_when_kitty1_equal_kitty2() {
 fn breed_failed_when_kitty1_invalid() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
         // 用户1创建一个kitty1
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 用户3用kitty1和kitty1生成kitty3，SameParentIndex
@@ -110,6 +136,8 @@ fn breed_failed_when_kitty1_invalid() {
 fn breed_failed_when_kitty2_invalid() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
         // 用户1创建一个kitty1
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 用户3用kitty1和kitty1生成kitty3，SameParentIndex
@@ -122,6 +150,10 @@ fn breed_failed_when_kitty2_invalid() {
 fn breed_failed_when_kitty_index_limit_over() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
+        // 给用户2钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 2, 1_000, 0));
         // 用户1创建一个kitty1
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 用户2创建一个kitty2
@@ -138,6 +170,8 @@ fn breed_failed_when_kitty_index_limit_over() {
 fn market_works() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
         // 创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 以10的价钱放在市场上卖
@@ -152,6 +186,8 @@ fn market_works() {
 fn market_failed_when_kitty_not_self() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
         // 先创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 用户2把用户1的kitty以10的价钱放在市场上卖
@@ -164,6 +200,8 @@ fn market_failed_when_kitty_not_self() {
 fn buy_works() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
         // 创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 以10的价钱放在市场上卖
@@ -182,6 +220,8 @@ fn buy_works() {
 fn buy_failed_when_have_no_money() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
         // 创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 以10的价钱放在市场上卖
@@ -196,6 +236,8 @@ fn buy_failed_when_have_no_money() {
 fn buy_failed_when_invalid_account_id() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
         // 创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 以10的价钱放在市场上卖
@@ -212,6 +254,8 @@ fn buy_failed_when_invalid_account_id() {
 fn buy_failed_when_invalid_market_price() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
         // 创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 给用户2钱包放点钱
@@ -226,6 +270,8 @@ fn buy_failed_when_invalid_market_price() {
 fn buy_failed_when_price_too_low() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
+        // 给用户1钱包放点钱
+        assert_ok!(BalancesModule::set_balance(Origin::root(), 1, 1_000, 0));
         // 创建一个kitty
         assert_ok!(KittiesModule::create(Origin::signed(1)));
         // 以10的价钱放在市场上卖

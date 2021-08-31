@@ -12,7 +12,7 @@ mod tests;
 pub mod pallet {
     use codec::{Decode, Encode};
     use frame_support::{dispatch::DispatchResult, pallet_prelude::*,
-                        traits::{Randomness, Currency, LockableCurrency, ExistenceRequirement, WithdrawReasons, LockIdentifier}};
+                        traits::{Randomness, Currency, LockableCurrency, ReservableCurrency, ExistenceRequirement}};
     use frame_system::pallet_prelude::*;
     use sp_io::hashing::blake2_128;
     use sp_runtime::{traits::{AtLeast32BitUnsigned, Member, Bounded, One}};
@@ -27,8 +27,12 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
         type KittyIndex: Parameter + Member + AtLeast32BitUnsigned + Bounded + One + Default + Copy;
-        type Currency: Currency<Self::AccountId>;
-        type LockableCurrency: LockableCurrency<Self::AccountId>;
+        // type Currency: Currency<Self::AccountId>;
+        type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>
+        + ReservableCurrency<Self::AccountId>;
+
+        #[pallet::constant]
+        type MinimumVotingLock: Get<BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -88,7 +92,7 @@ pub mod pallet {
             let dna = Self::random_value(&sender);
 
             // 锁定一定的钱
-            T::LockableCurrency::set_lock( *b"1       ", &sender,  *b"1       ", WithdrawReasons::all());
+            T::Currency::reserve( &sender,  T::MinimumVotingLock::get())?;
 
             // 保存新的kitty
             Self::add_one_kitty(sender.clone(), kitty_id, dna);
