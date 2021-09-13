@@ -13,6 +13,7 @@ import Interactor from './Interactor';
 import Metadata from './Metadata';
 import NodeInfo from './NodeInfo';
 import TemplateModule from './TemplateModule';
+import Kitties from './Kitties';
 import Transfer from './Transfer';
 import Upgrade from './Upgrade';
 
@@ -55,6 +56,10 @@ function Main () {
       </Sticky>
       <Container>
         <Grid stackable columns='equal'>
+          <Grid.Row>
+            <Kitties accountPair={accountPair} />
+          </Grid.Row>
+
           <Grid.Row stretched>
             <NodeInfo />
             <Metadata />

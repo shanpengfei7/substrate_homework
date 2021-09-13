@@ -11,16 +11,22 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
     use codec::{Decode, Encode};
-    use frame_support::{dispatch::DispatchResult, pallet_prelude::*,
-                        traits::{Randomness, Currency, LockableCurrency, ReservableCurrency, ExistenceRequirement}};
+    use frame_support::{
+        dispatch::DispatchResult,
+        pallet_prelude::*,
+        traits::{
+            Currency, ExistenceRequirement, LockableCurrency, Randomness, ReservableCurrency,
+        },
+    };
     use frame_system::pallet_prelude::*;
     use sp_io::hashing::blake2_128;
-    use sp_runtime::{traits::{AtLeast32BitUnsigned, Member, Bounded, One}};
+    use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, Member, One};
 
     #[derive(Encode, Decode, Debug, PartialEq)]
     pub struct Kitty(pub [u8; 16]);
 
-    pub type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    pub type BalanceOf<T> =
+        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
@@ -28,7 +34,7 @@ pub mod pallet {
         type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
         type KittyIndex: Parameter + Member + AtLeast32BitUnsigned + Bounded + One + Default + Copy;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>
-        + ReservableCurrency<Self::AccountId>;
+            + ReservableCurrency<Self::AccountId>;
         #[pallet::constant]
         type MinimumVotingLock: Get<BalanceOf<Self>>;
     }
@@ -43,7 +49,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn kitties)]
-    pub type Kitties<T: Config> = StorageMap<_, Blake2_128Concat, T::KittyIndex, Option<Kitty>, ValueQuery>;
+    pub type Kitties<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::KittyIndex, Option<Kitty>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn owner)]
@@ -90,7 +97,7 @@ pub mod pallet {
             let dna = Self::random_value(&sender);
 
             // 锁定一定的钱
-            T::Currency::reserve( &sender,  T::MinimumVotingLock::get())?;
+            T::Currency::reserve(&sender, T::MinimumVotingLock::get())?;
 
             // 保存新的kitty
             Self::add_one_kitty(sender.clone(), kitty_id, dna);
@@ -102,12 +109,19 @@ pub mod pallet {
         }
 
         #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-        pub fn transfer(origin: OriginFor<T>, new_owner: T::AccountId, kitty_id: T::KittyIndex) -> DispatchResult {
+        pub fn transfer(
+            origin: OriginFor<T>,
+            new_owner: T::AccountId,
+            kitty_id: T::KittyIndex,
+        ) -> DispatchResult {
             // 方法调用者
             let sender = ensure_signed(origin)?;
 
             // kitty是调用者的
-            ensure!(Some(sender.clone()) == Owner::<T>::get(kitty_id),Error::<T>::NotOwner);
+            ensure!(
+                Some(sender.clone()) == Owner::<T>::get(kitty_id),
+                Error::<T>::NotOwner
+            );
 
             // 变一下kitty所属关系
             Owner::<T>::insert(kitty_id, Some(new_owner.clone()));
@@ -119,7 +133,11 @@ pub mod pallet {
         }
 
         #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-        pub fn breed(origin: OriginFor<T>, kitty_id_1: T::KittyIndex, kitty_id_2: T::KittyIndex) -> DispatchResult {
+        pub fn breed(
+            origin: OriginFor<T>,
+            kitty_id_1: T::KittyIndex,
+            kitty_id_2: T::KittyIndex,
+        ) -> DispatchResult {
             // 方法调用者
             let sender = ensure_signed(origin)?;
 
@@ -139,12 +157,19 @@ pub mod pallet {
         }
 
         #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-        pub fn market(origin: OriginFor<T>, kitty_id: T::KittyIndex, price: BalanceOf<T>) -> DispatchResult {
+        pub fn market(
+            origin: OriginFor<T>,
+            kitty_id: T::KittyIndex,
+            price: BalanceOf<T>,
+        ) -> DispatchResult {
             // 方法调用者
             let sender = ensure_signed(origin)?;
 
             // kitty是调用者的
-            ensure!(Some(sender.clone()) == Owner::<T>::get(kitty_id),Error::<T>::NotOwner);
+            ensure!(
+                Some(sender.clone()) == Owner::<T>::get(kitty_id),
+                Error::<T>::NotOwner
+            );
 
             // 把kitty放到市场上
             KittiesMarket::<T>::insert(kitty_id, Some(price));
@@ -156,12 +181,16 @@ pub mod pallet {
         }
 
         #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-        pub fn buy(origin: OriginFor<T>, kitty_id: T::KittyIndex, price: BalanceOf<T>) -> DispatchResult {
+        pub fn buy(
+            origin: OriginFor<T>,
+            kitty_id: T::KittyIndex,
+            price: BalanceOf<T>,
+        ) -> DispatchResult {
             // 方法调用者
             let sender = ensure_signed(origin)?;
 
             // 从市场购买kitty
-            let kitty_price  = Self::buy_kitty(&sender, kitty_id, price)?;
+            let kitty_price = Self::buy_kitty(&sender, kitty_id, price)?;
 
             // 事件
             Self::deposit_event(Event::KittyBuy(sender, kitty_id, kitty_price));
@@ -186,7 +215,10 @@ pub mod pallet {
             let kitty_id = match Self::kitties_count() {
                 Some(id) => {
                     // 溢出报错
-                    ensure!(id != T::KittyIndex::max_value(), Error::<T>::KittiesCountOverflow);
+                    ensure!(
+                        id != T::KittyIndex::max_value(),
+                        Error::<T>::KittiesCountOverflow
+                    );
                     // 获取下一个id的时候加1，存的时候就不加了
                     id + T::KittyIndex::one()
                 }
@@ -207,7 +239,11 @@ pub mod pallet {
         }
 
         // 生成孩子的dna
-        fn breed_dna(sender: &T::AccountId, kitty_id_1: T::KittyIndex, kitty_id_2: T::KittyIndex) -> sp_std::result::Result<[u8; 16], DispatchError> {
+        fn breed_dna(
+            sender: &T::AccountId,
+            kitty_id_1: T::KittyIndex,
+            kitty_id_2: T::KittyIndex,
+        ) -> sp_std::result::Result<[u8; 16], DispatchError> {
             // 父母不能一致
             ensure!(kitty_id_1 != kitty_id_2, Error::<T>::SameParentIndex);
 
@@ -231,12 +267,17 @@ pub mod pallet {
         }
 
         // 从市场购买kitty
-        fn buy_kitty(sender: &T::AccountId, kitty_id: T::KittyIndex, price: BalanceOf<T>) -> sp_std::result::Result<BalanceOf<T>, DispatchError> {
+        fn buy_kitty(
+            sender: &T::AccountId,
+            kitty_id: T::KittyIndex,
+            price: BalanceOf<T>,
+        ) -> sp_std::result::Result<BalanceOf<T>, DispatchError> {
             // 获取kitty所属用户，判断kitty是否存在
             let owner = Self::owner(kitty_id).ok_or(Error::<T>::InvalidKittyIndex)?;
 
             // 市场上kitty挂的价钱，判断kitty是否在市场上挂单
-            let kitty_price = Self::kitties_market(kitty_id).ok_or(Error::<T>::InvalidMarketPrice)?;
+            let kitty_price =
+                Self::kitties_market(kitty_id).ok_or(Error::<T>::InvalidMarketPrice)?;
 
             // 出的钱要比市场上的价钱高
             ensure!(price >= kitty_price, Error::<T>::PriceTooLow);
